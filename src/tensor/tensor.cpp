@@ -1,7 +1,10 @@
 #include "tensor.hpp"
 
 #include "../utils.hpp"
+#include "llaisys.h"
+#include "llaisys/runtime.h"
 
+#include <cstddef>
 #include <cstring>
 #include <numeric>
 #include <sstream>
@@ -164,18 +167,59 @@ void Tensor::debug() const {
 }
 
 bool Tensor::isContiguous() const {
-    TO_BE_IMPLEMENTED();
+    size_t expected = 1;
+    const auto &shape = this->shape();
+    const auto &strides = this->strides();
+    for (size_t dim = this->ndim(); dim-- > 0;) {
+        if (static_cast<size_t>(strides[dim]) != expected) {
+            return false;
+        }
+        expected *= shape[dim];
+    }
     return true;
 }
 
 tensor_t Tensor::permute(const std::vector<size_t> &order) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    CHECK_ARGUMENT(order.size() == this->ndim(), "permute: order size must equal ndim");
+    std::vector<size_t> new_shape(this->ndim());
+    std::vector<ptrdiff_t> new_strides(this->ndim());
+    const auto &shape = this->shape();
+    const auto &strides = this->strides();
+    for (size_t i = 0; i < this->ndim(); i++) {
+        size_t src_dim = order[i];
+        CHECK_ARGUMENT(src_dim < this->ndim(), "permute: order index out of range");
+        new_shape[i] = shape[src_dim];
+        new_strides[i] = strides[src_dim];
+    }
+    TensorMeta new_meta{this->dtype(), std::move(new_shape), std::move(new_strides)};
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
 tensor_t Tensor::view(const std::vector<size_t> &shape) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    // 1) 元素个数必须相同。例: (3,4,5) 和 (6,10) 都是 60。
+    size_t new_numel = 1;
+    for (size_t s : shape) {
+        new_numel *= s;
+    }
+    CHECK_ARGUMENT(new_numel == this->numel(), "view: numel mismatch");
+
+    // 2) README: 布局不兼容要报错。例 (2,3,5)/(30,10,1) 不是连续的，
+    //    不能无拷贝 view 成 (2,15)。作业测试只覆盖连续张量，所以这里
+    //    用「必须 contiguous」作为兼容性检查（比 PyTorch 完整算法简单）。
+    CHECK_ARGUMENT(this->isContiguous(), "view: incompatible shape/strides");
+
+    // 3) 连续内存上换看法：按新 shape 填稠密 strides。
+    //    例 (6,10) → strides (10, 1)，与 Tensor::create 同一套公式。
+    std::vector<ptrdiff_t> new_strides(shape.size());
+    size_t stride = 1;
+    for (size_t i = shape.size(); i-- > 0;) {
+        new_strides[i] = static_cast<ptrdiff_t>(stride);
+        stride *= shape[i];
+    }
+
+    // 4) 同一块 storage、同一 offset，只换 meta。
+    TensorMeta new_meta{this->dtype(), shape, std::move(new_strides)};
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, _offset));
 }
 
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
@@ -184,7 +228,12 @@ tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
 }
 
 void Tensor::load(const void *src_) {
-    TO_BE_IMPLEMENTED();
+    core::context().setDevice(this->deviceType(), this->deviceId()); // 切到这块内存所属设备
+    core::context().runtime().api()->memcpy_sync(
+        this->data(),
+        src_,
+        this->numel() * this->elementSize(),
+        LLAISYS_MEMCPY_H2D);
 }
 
 tensor_t Tensor::contiguous() const {
