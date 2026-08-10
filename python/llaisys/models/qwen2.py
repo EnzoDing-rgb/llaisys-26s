@@ -11,7 +11,7 @@
     1. 把 config 填进 LlaisysQwen2Meta（一张「尺寸说明书」）
     2. 调 C API Create：C++ 按说明书 malloc 出空 tensor 壳
     3. 调 C API Weights：拿到「壳」的指针表
-    4. 按 safetensors 的名字，把 numpy 数组 memcpy 进对应壳
+    4. 按 safetensors 的名字，把权重字节 memcpy 进对应壳
            │
            ▼
   libllaisys.so 里的 C++ 模型对象（以后 Infer / generate 用它）
@@ -28,7 +28,6 @@ import re
 from ctypes import c_int, c_int64, c_void_p, byref
 
 import safetensors
-import numpy as np
 
 from ..libllaisys import (
     LIB_LLAISYS,
@@ -157,37 +156,25 @@ class Qwen2:
 
         # 大模型常被切成多个 .safetensors 分片；排序后顺序遍历即可。
         # 每个文件里是一组 (名字 → 数组) 的映射。
+        #
+        # 注意: 权重是 BF16。普通 numpy 不认 bfloat16 dtype，
+        #   framework="numpy" 会报 TypeError: data type 'bfloat16' not understood。
+        # 所以用 PyTorch 读出来，再把底层字节指针交给 tensorLoad。
         for file in sorted(model_path.glob("*.safetensors")):
-            # framework="numpy"：get_tensor 直接返回 np.ndarray，不必经 torch。
-            # device="cpu"：先读到主机内存；若模型在 CUDA，tensorLoad / 后续
-            #   由 C++ runtime 负责是否再搬到设备（取决于 Create 时的 device）。
-            with safetensors.safe_open(file, framework="numpy", device="cpu") as data:
+            with safetensors.safe_open(file, framework="pt", device="cpu") as data:
                 for name in data.keys():
-                    # name 例:
-                    #   "model.layers.0.self_attn.q_proj.weight"
-                    #   "model.embed_tokens.weight"
-                    #   "lm_head.weight"
-                    #
-                    # get_tensor：按名字取出整块数组，dtype 通常是 bfloat16。
-                    # ascontiguousarray：保证内存连续（C-order），因为
-                    #   tensorLoad 是按「一块连续字节」memcpy 的；
-                    #   若数组有奇怪 stride，直接传指针会拷乱。
-                    arr = np.ascontiguousarray(data.get_tensor(name))
+                    # name 例: "model.layers.0.self_attn.q_proj.weight"
+                    # contiguous: 保证一行紧挨一行，tensorLoad 按连续字节 memcpy。
+                    weight_cpu = data.get_tensor(name).contiguous()
 
                     # 名字 → Weights 里对应的那个 llaisysTensor_t 句柄。
                     # 例: "...layers.0...q_proj.weight" → weights.attn_q_w[0]
                     tensor = self._resolve_weight_tensor(weights, name)
 
-                    # tensorLoad(dst, src_ptr)：
-                    #   把 arr 的原始字节，按 dst 的 numel * elementSize，
-                    #   拷进 C++ tensor 已经分配好的 data 区。
-                    # arr.ctypes.data_as(c_void_p)：numpy 缓冲区起始地址，
-                    #   交给 C 当 void* 用。
-                    #
-                    # 注意：这里不检查 shape 是否匹配——约定是
-                    #   Create 时按 Meta 开的 shape，必须和 HF 权重一致。
-                    #   shape 对不上会静默写坏或越界，那是 Create 侧的责任。
-                    LIB_LLAISYS.tensorLoad(tensor, arr.ctypes.data_as(c_void_p))
+                    # tensorLoad(dst, src_ptr)：按 dst 的 numel*elementSize 拷字节。
+                    # data_ptr() = torch 张量缓冲区起始地址（BF16 原始位型）。
+                    # 必须在 weight_cpu 仍存活时调用，否则指针会悬空。
+                    LIB_LLAISYS.tensorLoad(tensor, c_void_p(weight_cpu.data_ptr()))
 
         # 走到这里：所有 safetensors 条目都已灌进 C++ 模型。
         # generate / Infer 可以开始用这些权重做前向了。
@@ -330,8 +317,6 @@ class Qwen2:
             - 第一次：cache_len=0，对 ids[0:n] 做 prefill，写入 K/V，再算 next
             - 之后：只对 ids[cache_len:n] 做 decode（通常每次只多 1 个），
                     追加 K/V，再算 next；不要每次从头重算，否则会极慢
-          一次 generate 开始前，C++ 应把 cache_len 清零（或等价 reset），
-          否则上一次对话的 KV 会脏读进这一次。
         """
         # 测试里没人传 None；默认 128 只是防护。
         _ = (top_k, top_p, temperature)  # 签名兼容；真正采样在 C++ argmax
