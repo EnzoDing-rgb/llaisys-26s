@@ -88,3 +88,6 @@ htmlcov/
 Thumbs.db
 ehthumbs.db
 desktop.ini
+
+# Local package downloads (e.g. clangd .deb)
+*.deb
