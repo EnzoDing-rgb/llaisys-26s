@@ -223,8 +223,21 @@ tensor_t Tensor::view(const std::vector<size_t> &shape) const {
 }
 
 tensor_t Tensor::slice(size_t dim, size_t start, size_t end) const {
-    TO_BE_IMPLEMENTED();
-    return std::shared_ptr<Tensor>(new Tensor(_meta, _storage));
+    CHECK_ARGUMENT(dim < this->ndim(), "slice: dim out of range");
+    CHECK_ARGUMENT(start <= end && end <= this->shape()[dim], "slice: invalid start/end");
+
+    // 复制 shape，只缩短被切的那一维。例: (3,4,5) slice(2,1,4) → (3,4,3)
+    std::vector<size_t> new_shape = this->shape();
+    new_shape[dim] = end - start;
+
+    // strides 不变。例: 仍是 (20,5,1)
+    std::vector<ptrdiff_t> new_strides = this->strides();
+
+    // 起点一次挪到 [..., start, ...]；单位是字节（和 data() 一致）
+    size_t new_offset = _offset + start * static_cast<size_t>(this->strides()[dim]) * this->elementSize();
+
+    TensorMeta new_meta{this->dtype(), std::move(new_shape), std::move(new_strides)};
+    return std::shared_ptr<Tensor>(new Tensor(new_meta, _storage, new_offset));
 }
 
 void Tensor::load(const void *src_) {
