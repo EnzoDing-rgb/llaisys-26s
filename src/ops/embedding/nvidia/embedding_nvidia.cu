@@ -7,11 +7,15 @@
 
 namespace llaisys::ops::nvidia {
 
-// Embedding = 按行 gather：out[i, :] = weight[index[i], :]
-// 没有算术，只是把 weight 里某一整行拷到 out 的第 i 行。
+// =============================================================================
+// 【算子】out[row, :] = weight[index[row], :]  （按行 gather，只拷贝、无算术）
 //
-// 并行：一个 block 负责一行输出；block 内 threads 沿 embed_dim 跨步拷贝。
-// 同一拍里 thread0..255 读/写的是行内连续地址 → 对 out/weight 行内访存友好。
+// 【并行重点】两层：
+//   1) blockIdx.x = 输出行号 row  → 不同行之间并行
+//   2) threadIdx.x 沿 embed_dim 跨步 → 同一行内多 thread 并行搬列
+// 例 embed_dim=4096、threads=256 → 每 thread 大约搬 16 个元素（步长 blockDim）
+// 【访存】dst[col]=src[col]：global→寄存器→global；行内连续下标利于合并
+// =============================================================================
 
 template <typename T>
 __global__ void embedding_kernel(T *out, const int64_t *index, const T *weight,
