@@ -19,9 +19,10 @@ namespace llaisys::ops::nvidia {
 //     b' = b cosφ + a sinφ
 //
 // 【并行重点】
-//   并行单元 = 一个旋转平面 (token s, head h, 平面 j)
-//   不同 (s,h,j) 完全独立 → 一个 thread 负责一个（或多个跨步）平面即可
-//   行间/平面间不需要归约，因此不用 SMEM
+//   并行的「一件活」= 一个旋转平面 (s, h, j)，同时动两个元素 x[j] 与 x[half+j]
+//   因此把活摊成一维时，逻辑形状是 [seqlen, nhead, half]，最内维是 half 不是 d
+//   （若按元素 [seqlen,nhead,d] 编号，会和「一对一算」错位）
+//   不同 (s,h,j) 独立 → 无需归约 / 无需 SMEM
 // =============================================================================
 
 template <typename T>
@@ -50,20 +51,34 @@ template <typename T>
 __global__ void rope_kernel(T *out, const T *in, const int64_t *pos_ids,
                             size_t seqlen, size_t nhead, size_t d, float theta) {
     const size_t half = d / 2;
-    // 总共有多少个独立旋转平面
-    const size_t nplanes = seqlen * nhead * half;
-    const size_t stride = static_cast<size_t>(blockDim.x) * gridDim.x;
+    // ---------------------------------------------------------------------
+    // plane 编址的逻辑形状是 [seqlen, nhead, half]，不是 [seqlen, nhead, d]。
+    //
+    // 原因：并行的「一件活」= 旋转一对 (x[j], x[half+j])。
+    //   一对已经覆盖头向量里的 2 个元素，所以每个 head 只有 half 件活，不是 d 件。
+    //   若把活按元素数 d 来编号，会和「一对一算」对不上。
+    //
+    // 因此拆坐标时，最内维长度用 half：
+    //   planes_per_token = nhead * half   （≈ 你直觉里的 nhead*(d/2)，不是 nhead*d）
+    //   s = plane / planes_per_token
+    //   余下再拆 h、j
+    // ---------------------------------------------------------------------
+    const size_t planes_per_head = half;
+    const size_t planes_per_token = nhead * planes_per_head;
+    const size_t nplanes = seqlen * planes_per_token;
+
+    const size_t grid_stride = static_cast<size_t>(blockDim.x) * gridDim.x;
     const float d_f = static_cast<float>(d);
 
-    // 【并行重点】把三维 (s,h,j) 摊成一维 plane_id，用 grid-stride 盖住
-    for (size_t plane = blockIdx.x * blockDim.x + threadIdx.x; plane < nplanes; plane += stride) {
-        // plane → (s, h, j)：先拆 j，再拆 h，最后 s（与连续布局对应）
-        const size_t j = plane % half;
-        const size_t tmp = plane / half;
-        const size_t h = tmp % nhead;
-        const size_t s = tmp / nhead;
+    // 【并行重点】plane 遍历所有可并行的旋转对；grid_stride 让 thread 多轮接下一批
+    for (size_t plane = blockIdx.x * blockDim.x + threadIdx.x; plane < nplanes; plane += grid_stride) {
+        // 按 [seqlen, nhead, half] 行主序从 plane 还原 (s, h, j)
+        const size_t s = plane / planes_per_token;   // 落在第几个token
+        const size_t rem = plane % planes_per_token; // 落在该 token 内的平面编号
+        const size_t h = rem / planes_per_head;      // 第几个 head
+        const size_t j = rem % planes_per_head;      // 该 head 内第几个旋转平面
 
-        // 该 token 的绝对位置；KV cache 续写时可能是 512,513,... 而不是从 0 起
+        // 该 token 的绝对位置；KV cache 续写时可能是 512,513,... 
         const float p = static_cast<float>(pos_ids[s]);
 
         // φ = p / theta^(2j/d)
@@ -75,6 +90,7 @@ __global__ void rope_kernel(T *out, const T *in, const int64_t *pos_ids,
         const T *x = in + (s * nhead + h) * d;
         T *y = out + (s * nhead + h) * d;
 
+        // 平面 j：同时读写前后半各一个元素
         const float a = as_float(x[j]);
         const float b = as_float(x[half + j]);
         y[j] = from_float<T>(a * c - b * sphi);
