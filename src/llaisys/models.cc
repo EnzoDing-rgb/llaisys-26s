@@ -218,8 +218,7 @@ int64_t llaisysQwen2ModelInfer(
     //   hidden 形状 (50, 1536)，后面 28 层都在这块上算
     //
     // 为啥用 token_ids + past，而不是从头灌？
-    //   前 past 个 token 的 K/V 已在 cache 里，它们的 embedding
-    //   早就算过了；本轮只嵌「新尾巴」。
+    //   前 past 个 token 的 K/V 已在 cache 里，它们的 embedding 早就算过了；本轮只嵌「新尾巴」。
     // ================================================================
     size_t shape_token_index[1] = {n_new}; // 例 decode: {1}；prefill: {50}
     size_t shape_hidden[2] = {n_new, hs};  // 例 decode: {1,1536}
@@ -319,13 +318,13 @@ int64_t llaisysQwen2ModelInfer(
         // 写入本层 KV cache 新槽。例 past=50,ntoken=53 → cache[50:53]
         llaisysTensor_t k_new = tensorSlice(model->k_cache[i], 0, past, ntoken);
         llaisysTensor_t v_new = tensorSlice(model->v_cache[i], 0, past, ntoken);
-        copy_tensor(k_new, k);
+        copy_tensor(k_new, k); // kv_cache的写入
         copy_tensor(v_new, v);
         tensorDestroy(k_new);
         tensorDestroy(v_new);
 
         // 注意力读全部 K/V。例 k_all=(53,nkvh,dh)，q 只有本轮 n_new 行
-        llaisysTensor_t k_all = tensorSlice(model->k_cache[i], 0, 0, ntoken);
+        llaisysTensor_t k_all = tensorSlice(model->k_cache[i], 0, 0, ntoken); // kv_cache的读取
         llaisysTensor_t v_all = tensorSlice(model->v_cache[i], 0, 0, ntoken);
         llaisysSelfAttention(attn, q, k_all, v_all, scale);
         tensorDestroy(k_all);
