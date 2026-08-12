@@ -24,7 +24,7 @@ target("llaisys-utils")
     set_languages("cxx17")
     set_warnings("all", "error")
     if not is_plat("windows") then
-        add_cxflags("-fPIC", "-Wno-unknown-pragmas")
+        add_cxflags("-fPIC", "-Wno-unknown-pragmas", {force = true})
     end
 
     add_files("src/utils/*.cpp")
@@ -44,7 +44,7 @@ target("llaisys-device")
     set_languages("cxx17")
     set_warnings("all", "error")
     if not is_plat("windows") then
-        add_cxflags("-fPIC", "-Wno-unknown-pragmas")
+        add_cxflags("-fPIC", "-Wno-unknown-pragmas", {force = true})
     end
 
     add_files("src/device/*.cpp")
@@ -60,7 +60,7 @@ target("llaisys-core")
     set_languages("cxx17")
     set_warnings("all", "error")
     if not is_plat("windows") then
-        add_cxflags("-fPIC", "-Wno-unknown-pragmas")
+        add_cxflags("-fPIC", "-Wno-unknown-pragmas", {force = true})
     end
 
     add_files("src/core/*/*.cpp")
@@ -75,7 +75,7 @@ target("llaisys-tensor")
     set_languages("cxx17")
     set_warnings("all", "error")
     if not is_plat("windows") then
-        add_cxflags("-fPIC", "-Wno-unknown-pragmas")
+        add_cxflags("-fPIC", "-Wno-unknown-pragmas", {force = true})
     end
 
     add_files("src/tensor/*.cpp")
@@ -93,7 +93,7 @@ target("llaisys-ops")
     set_languages("cxx17")
     set_warnings("all", "error")
     if not is_plat("windows") then
-        add_cxflags("-fPIC", "-Wno-unknown-pragmas")
+        add_cxflags("-fPIC", "-Wno-unknown-pragmas", {force = true})
     end
     
     add_files("src/ops/*/*.cpp")
@@ -114,7 +114,19 @@ target("llaisys")
     add_files("src/llaisys/*.cc")
     if has_config("nv-gpu") then
         add_syslinks("cudart")
-        add_linkdirs("/usr/local/cuda/lib64")
+        -- Prefer Iluvatar COREX when present; otherwise NVIDIA CUDA.
+        local corex = os.getenv("COREX_HOME") or "/usr/local/corex"
+        local cuda = os.getenv("CUDA_PATH") or os.getenv("CUDA_HOME") or "/usr/local/cuda"
+        if os.isdir(corex) then
+            add_linkdirs(path.join(corex, "lib"))
+            add_rpathdirs(path.join(corex, "lib"))
+        elseif os.isdir(path.join(cuda, "lib64")) then
+            add_linkdirs(path.join(cuda, "lib64"))
+            add_rpathdirs(path.join(cuda, "lib64"))
+        elseif os.isdir(path.join(cuda, "lib")) then
+            add_linkdirs(path.join(cuda, "lib"))
+            add_rpathdirs(path.join(cuda, "lib"))
+        end
     end
     set_installdir(".")
 
