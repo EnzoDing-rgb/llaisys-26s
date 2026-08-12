@@ -2,6 +2,9 @@
 #include "llaisys/models/qwen2.h"
 #include "llaisys/tensor.h"
 #include "llaisys/ops.h"
+
+#include "../core/llaisys_core.hpp"
+
 #include <vector>
 #include <cmath>
 #include <cstring>
@@ -148,8 +151,14 @@ struct LlaisysQwen2Weights *llaisysQwen2ModelWeights(struct LlaisysQwen2Model *m
     return &model->weights;
 }
 
-// 同形状连续 tensor 字节拷贝。
-// 例: residual ← x，两边都是 [5, 1536] BF16，拷 5*1536*2 字节。
+// 同形状连续 tensor 字节拷贝（走 Runtime，CPU/GPU 都能用）。
+// 例: residual ← hidden，两边都是 [5, 1536] BF16，拷 5*1536*2 字节。
+//
+// 为什么不能 std::memcpy？
+//   NVIDIA 时 tensorGetData 是显存指针，host memcpy 非法。
+// 怎么派发？
+//   setDevice(tensor 的 device 标签) → 激活对应 Runtime 函数表
+//   kind：同在 CPU → H2H；同在 GPU → D2D（由调用方按标签选，不是魔法嗅探）
 static void copy_tensor(llaisysTensor_t dst, llaisysTensor_t src) {
     size_t ndim = tensorGetNdim(src);
     std::vector<size_t> shape(ndim);
@@ -163,7 +172,14 @@ static void copy_tensor(llaisysTensor_t dst, llaisysTensor_t src) {
     case LLAISYS_DTYPE_I64: esize = 8; break;
     default: esize = 2; break; // BF16 / F16
     }
-    std::memcpy(tensorGetData(dst), tensorGetData(src), numel * esize);
+
+    const llaisysDeviceType_t device = tensorGetDeviceType(dst);
+    const int device_id = tensorGetDeviceId(dst);
+    llaisys::core::context().setDevice(device, device_id);
+    const llaisysMemcpyKind_t kind =
+        (device == LLAISYS_DEVICE_CPU) ? LLAISYS_MEMCPY_H2H : LLAISYS_MEMCPY_D2D;
+    llaisys::core::context().runtime().api()->memcpy_sync(
+        tensorGetData(dst), tensorGetData(src), numel * esize, kind);
 }
 
 int64_t llaisysQwen2ModelInfer(
@@ -307,9 +323,10 @@ int64_t llaisysQwen2ModelInfer(
 
         // 2D→3D：内存布局相同（hs=nh*dh），按字节灌入，等价 view
         // 例 q_flat (5,1536) → q (5,12,128)
-        tensorLoad(q, tensorGetData(q_flat));
-        tensorLoad(k, tensorGetData(k_flat));
-        tensorLoad(v, tensorGetData(v_flat));
+        // 两边同在 device 上 → 用 copy_tensor（D2D/H2H），不能 tensorLoad（写死 H2D）
+        copy_tensor(q, q_flat);
+        copy_tensor(k, k_flat);
+        copy_tensor(v, v_flat);
 
         // RoPE 只转 Q、K；V 不转。例 rope_pos={50,51,52}
         llaisysROPE(q, q, rope_pos, theta);
@@ -323,7 +340,7 @@ int64_t llaisysQwen2ModelInfer(
         tensorDestroy(k_new);
         tensorDestroy(v_new);
 
-        // 注意力读全部 K/V。例 k_all=(53,nkvh,dh)，q 只有本轮 n_new 行
+        // 注意力读全部 K/V。例 k_all=(53,nkvh,dh)，q 只有本轮 n_new 行; 其实只是换一种视角看 KV Cache
         llaisysTensor_t k_all = tensorSlice(model->k_cache[i], 0, 0, ntoken); // kv_cache的读取
         llaisysTensor_t v_all = tensorSlice(model->v_cache[i], 0, 0, ntoken);
         llaisysSelfAttention(attn, q, k_all, v_all, scale);
@@ -331,7 +348,7 @@ int64_t llaisysQwen2ModelInfer(
         tensorDestroy(v_all);
 
         // attn (5,nh,dh) → attn_flat (5,hs) → o_proj → 加残差
-        tensorLoad(attn_flat, tensorGetData(attn));
+        copy_tensor(attn_flat, attn);
         llaisysLinear(hidden, attn_flat, W.attn_o_w[i], nullptr);
         llaisysAdd(hidden, residual, hidden);
 
@@ -365,7 +382,7 @@ int64_t llaisysQwen2ModelInfer(
     size_t shape_vocab[1] = {voc};
     llaisysTensor_t logits_1d =
         tensorCreate(shape_vocab, 1, dtype, device, device_id);
-    tensorLoad(logits_1d, tensorGetData(logits_2d));
+    copy_tensor(logits_1d, logits_2d);
 
     size_t shape_scalar[1] = {1};
     llaisysTensor_t max_idx =
@@ -373,7 +390,14 @@ int64_t llaisysQwen2ModelInfer(
     llaisysTensor_t max_val =
         tensorCreate(shape_scalar, 1, dtype, device, device_id);
     llaisysArgmax(max_idx, max_val, logits_1d);
-    int64_t next_id = *reinterpret_cast<int64_t *>(tensorGetData(max_idx));
+
+    // max_idx 在 device 上；CPU 不能直接解引用显存指针 → D2H（CPU 上则 H2H）
+    int64_t next_id = 0;
+    llaisys::core::context().setDevice(device, device_id);
+    const llaisysMemcpyKind_t to_host_kind =
+        (device == LLAISYS_DEVICE_CPU) ? LLAISYS_MEMCPY_H2H : LLAISYS_MEMCPY_D2H;
+    llaisys::core::context().runtime().api()->memcpy_sync(
+        &next_id, tensorGetData(max_idx), sizeof(int64_t), to_host_kind);
 
     tensorDestroy(last_hidden);
     tensorDestroy(last_normed);
