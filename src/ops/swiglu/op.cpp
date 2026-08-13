@@ -31,6 +31,9 @@ void swiglu(tensor_t out, tensor_t gate, tensor_t up) {
         return cpu::swiglu(out->data(), gate->data(), up->data(), out->dtype(), numel);
 #ifdef ENABLE_NVIDIA_API
     case LLAISYS_DEVICE_NVIDIA:
+#ifdef ENABLE_ILUVATAR_API
+    case LLAISYS_DEVICE_ILUVATAR: // 天数复用同一 CUDA kernel
+#endif
         return nvidia::swiglu(out->data(), gate->data(), up->data(), out->dtype(), numel);
 #endif
     default:

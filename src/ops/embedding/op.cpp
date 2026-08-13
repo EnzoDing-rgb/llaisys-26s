@@ -38,6 +38,9 @@ void embedding(tensor_t out, tensor_t index, tensor_t weight) {
         return cpu::embedding(out->data(), index->data(), weight->data(), weight->dtype(), index_len, embed_dim);
 #ifdef ENABLE_NVIDIA_API
     case LLAISYS_DEVICE_NVIDIA:
+#ifdef ENABLE_ILUVATAR_API
+    case LLAISYS_DEVICE_ILUVATAR: // 天数复用同一 CUDA kernel
+#endif
         return nvidia::embedding(out->data(), index->data(), weight->data(), weight->dtype(), index_len, embed_dim);
 #endif
     default:

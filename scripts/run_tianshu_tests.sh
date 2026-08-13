@@ -31,15 +31,15 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
 fi
 
 echo "[3/5] runtime"
-"$PYTHON" test/test_runtime.py --device nvidia
+"$PYTHON" test/test_runtime.py --device iluvatar
 
 echo "[4/5] ops"
 for op in add argmax embedding linear rms_norm rope self_attention swiglu; do
   echo "---- ops/$op ----"
-  "$PYTHON" "test/ops/${op}.py" --device nvidia
+  "$PYTHON" "test/ops/${op}.py" --device iluvatar
 done
 
 echo "[5/5] infer"
-"$PYTHON" test/test_infer.py --model "$MODEL_DIR" --test --device nvidia --max_steps 32
+"$PYTHON" test/test_infer.py --model "$MODEL_DIR" --test --device iluvatar --max_steps 32
 
 echo "ALL GREEN"

@@ -56,6 +56,9 @@ void linear(tensor_t out, tensor_t in, tensor_t weight, tensor_t bias) {
         return call_cpu();
 #ifdef ENABLE_NVIDIA_API
     case LLAISYS_DEVICE_NVIDIA:
+#ifdef ENABLE_ILUVATAR_API
+    case LLAISYS_DEVICE_ILUVATAR: // 天数复用同一 CUDA kernel
+#endif
         return nvidia::linear(out->data(), in->data(), weight->data(), bias_ptr, out->dtype(),
                               batch, in_features, out_features);
 #endif

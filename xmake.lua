@@ -15,6 +15,13 @@ option_end()
 
 if has_config("nv-gpu") then
     add_defines("ENABLE_NVIDIA_API")
+    -- 天数（Iluvatar COREX）：探测到 COREX 时额外打开一等设备宏。
+    -- 天数复用同一套 CUDA runtime/kernel（COREX 提供 CUDA 兼容接口），
+    -- 只是多一个 LLAISYS_DEVICE_ILUVATAR 设备类型 + iluvatar::getRuntimeAPI 别名。
+    local corex = os.getenv("COREX_HOME") or "/usr/local/corex"
+    if os.isdir(corex) and os.isfile(path.join(corex, "include", "cuda_runtime.h")) then
+        add_defines("ENABLE_ILUVATAR_API")
+    end
     includes("xmake/nvidia.lua")
 end
 

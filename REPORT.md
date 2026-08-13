@@ -92,7 +92,7 @@ python test/test_infer.py \
 | 实例 / 节点 | 当前容器/实例（工作目录 `/root/llaisys-26s`） |
 | GPU | **Iluvatar MR-V100**，32GB（`ixsmi`：IX-ML 4.4.0 / Driver 4.4.0 / CUDA Version 10.2） |
 | SDK / 驱动 | COREX **`/usr/local/corex`** → `corex-4.4.0`；`clang++` 在 `$COREX_HOME/bin`；工具链识别为 `GPU stack=iluvatar` |
-| 编译方式 | 复用 Nvidia API 路径：`xmake f --nv-gpu=y`；`xmake/nvidia.lua` 自动识别 `/usr/local/corex`，配合 `xmake/iluvatar.lua`；设备枚举仍用 `--device nvidia`（LLAISYS 内部名，实际跑天数） |
+| 编译方式 | 复用 CUDA 实现：`xmake f --nv-gpu=y`；`xmake/nvidia.lua` 自动识别 `/usr/local/corex`，配合 `xmake/iluvatar.lua`；天数是一等设备类型 `--device iluvatar`（`LLAISYS_DEVICE_ILUVATAR` + `ENABLE_ILUVATAR_API`，复用同一套 `.cu`） |
 | Python | 系统 `python3`；`torch 2.7.1+corex.4.4.0`；`pip install -e ./python/` |
 | 模型 | `/data/models/DeepSeek-R1-Distill-Qwen-1.5B`（`hf download deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`） |
 | Git commit | `c271775` — *Enable Iluvatar COREX builds alongside NVIDIA CUDA.* |
@@ -136,33 +136,33 @@ SKIP_BUILD=1 MODEL_DIR=/data/models/DeepSeek-R1-Distill-Qwen-1.5B \
   bash scripts/run_tianshu_tests.sh
 
 # 或逐步：
-python3 test/test_runtime.py --device nvidia
-python3 test/ops/add.py --device nvidia
+python3 test/test_runtime.py --device iluvatar
+python3 test/ops/add.py --device iluvatar
 # ... argmax embedding linear rms_norm rope self_attention swiglu
 python3 test/test_infer.py \
   --model /data/models/DeepSeek-R1-Distill-Qwen-1.5B \
-  --test --device nvidia --max_steps 32
+  --test --device iluvatar --max_steps 32
 ```
 
 ### 复现结果
 
 | 测试 | 命令 | 结果 |
 |------|------|------|
-| Runtime | `python3 test/test_runtime.py --device nvidia` | Passed（Found 1 nvidia devices） |
-| Ops add | `python3 test/ops/add.py --device nvidia` | Passed |
-| Ops argmax | `python3 test/ops/argmax.py --device nvidia` | Passed |
-| Ops embedding | `python3 test/ops/embedding.py --device nvidia` | Passed |
-| Ops linear | `python3 test/ops/linear.py --device nvidia` | Passed |
-| Ops rms_norm | `python3 test/ops/rms_norm.py --device nvidia` | Passed |
-| Ops rope | `python3 test/ops/rope.py --device nvidia` | Passed |
-| Ops self_attention | `python3 test/ops/self_attention.py --device nvidia` | Passed |
-| Ops swiglu | `python3 test/ops/swiglu.py --device nvidia` | Passed |
-| Infer | `python3 test/test_infer.py --model ... --test --device nvidia --max_steps 32` | Passed（token 与 PyTorch 参考一致；参考 ~1.74s，本实现 ~9.56s） |
+| Runtime | `python3 test/test_runtime.py --device iluvatar` | Passed（Found 1 iluvatar devices） |
+| Ops add | `python3 test/ops/add.py --device iluvatar` | Passed |
+| Ops argmax | `python3 test/ops/argmax.py --device iluvatar` | Passed |
+| Ops embedding | `python3 test/ops/embedding.py --device iluvatar` | Passed |
+| Ops linear | `python3 test/ops/linear.py --device iluvatar` | Passed |
+| Ops rms_norm | `python3 test/ops/rms_norm.py --device iluvatar` | Passed |
+| Ops rope | `python3 test/ops/rope.py --device iluvatar` | Passed |
+| Ops self_attention | `python3 test/ops/self_attention.py --device iluvatar` | Passed |
+| Ops swiglu | `python3 test/ops/swiglu.py --device iluvatar` | Passed |
+| Infer | `python3 test/test_infer.py --model ... --test --device iluvatar --max_steps 32` | Passed（token 与 PyTorch 参考一致；参考 ~1.74s，本实现 ~9.56s） |
 | 汇总脚本 | `scripts/run_tianshu_tests.sh` | **ALL GREEN** |
 
 ### 备注
 
-- `--device nvidia` 是 LLAISYS 内部设备名；实际由 COREX clang 把同一套 `.cu` 编到天数运行。
+- 天数是一等设备类型：`--device iluvatar` → `LLAISYS_DEVICE_ILUVATAR`；实现复用同一套 `.cu`，由 COREX clang 编到天数运行；`iluvatar::getRuntimeAPI()` 是 `nvidia` runtime 的别名（旧 `--device nvidia` 仍可用，二者路由到同一后端）。
 - xmake 日志应出现：`[llaisys] GPU stack=iluvatar root=/usr/local/corex`。
 - 若 `cudaMalloc` / torch CUDA 分配卡在 `before malloc`，优先判容器/GPU 状态问题，不要先改算子代码。
 - root 跑 xmake 必须 `XMAKE_ROOT=y`（或 `--root`）。

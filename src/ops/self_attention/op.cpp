@@ -53,6 +53,9 @@ void self_attention(tensor_t attn_val, tensor_t q, tensor_t k, tensor_t v, float
                                    qlen, kvlen, nhead, nkvhead, d, dv, scale);
 #ifdef ENABLE_NVIDIA_API
     case LLAISYS_DEVICE_NVIDIA:
+#ifdef ENABLE_ILUVATAR_API
+    case LLAISYS_DEVICE_ILUVATAR: // 天数复用同一 CUDA kernel
+#endif
         return nvidia::self_attention(attn_val->data(), q->data(), k->data(), v->data(), attn_val->dtype(),
                                       qlen, kvlen, nhead, nkvhead, d, dv, scale);
 #endif
