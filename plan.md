@@ -40,11 +40,68 @@
 # llaisys 学习与面试计划
 
 > **岗位核心**：推理引擎与自研芯片栈对接——上层调度保留，下层 runtime + 算子替换。  
-> **硬件节奏**：第一轮在 RTX 5090 上跑通；第二轮补天数 Iluvatar（第 8 步）。
+> **硬件节奏**：第一轮在 RTX 5090 上跑通；第二轮补天数 Iluvatar（第 8 步）。**当前机器仅 5090。**
+
+## Profiling 作战清单（~半天，5090）
+
+**原则**：先剖自己的 backend（llaisys），再用 vLLM / InfiniLM 作**同指标参照**（不是端到端公平对决）。
+
+### 测什么（三层）
+
+| 层 | 测什么 | 工具 / 脚本 | 产出 |
+|----|--------|-------------|------|
+| **L3 端到端** | TTFT（prefill 首步）、TPOT（decode 均值）、逐步 `latency_ms` vs `kv_used_mib` | `scripts/profile_infer.py` | `profiling/*.csv` + `*.json` |
+| **L2 算子** | decode shape：linear Q/K/MLP；self_attention `kvlen=128/512/1024/2048`；rope | `scripts/profile_ops_decode.py`（内部调 `test/ops/* --profile` 的 `benchmark`） | llaisys vs torch 毫秒数 |
+| **参照系**（有余力） | 同模型、同 prompt 的 TTFT/TPOT **数量级** | vLLM：`vllm serve` + 简单计时；或 HF `model.generate`（`test_infer` 已有） | REPORT 一张对照表 |
+| **InfiniLM**（本地有才做） | 读 `model_runner` 路径上 TTFT/TPOT；不必先写 tracing | 仓库内 `examples/test_infer.py` 或自带 bench | 「引擎层 vs llaisys runtime 层」一句话 |
+
+**不测**：llaisys 整引擎 vs vLLM 整引擎（缺 Scheduler / Paged KV / fused kernel，比了无信息量）。
+
+### 本机环境（已探测）
+
+| 项目 | 路径 / 状态 |
+|------|-------------|
+| **llaisys** | `/home/lcpu/39112061/ai-infra/llaisys-26s`（本 workspace） |
+| **InfiniLM** | `/home/lcpu/39112061/ai-infra/InfiniLM`（已 clone；**InfiniCore 未装**，`infinilm` 未 pip 进 llaisys venv） |
+| **模型** | `/home/lcpu/39112061/models/DeepSeek-R1-Distill-Qwen-1.5B`（默认） |
+| **vLLM** | 已装入 llaisys `.venv`：`vllm==0.28.0`（`uv pip install vllm`）；**需在 5090 GPU 节点**上跑 |
+| **包管理** | `.venv` 无 `pip` 模块，用 **`uv pip --python .venv/bin/python`** |
+
+InfiniLM 明天若要测：先按 `InfiniLM/README.md` 编 InfiniCore → `pip install -e /home/lcpu/39112061/ai-infra/InfiniLM`，再 `examples/test_infer.py`（自带 `total_time`）。
+
+vLLM 明天对照：5090 上 `python -c "import vllm"` 通过后，用同 prompt 记 TTFT/TPOT（脚本待补 `scripts/profile_vllm.py`）。
+
+### 明天时间怎么切（3～4h）
+
+```text
+0:00  环境：xmake --nv-gpu=y 已编、test_infer --test 通过
+0:30  bash scripts/run_profile_5090.sh          ← llaisys 主数据
+1:30  读 infer.csv：TTFT、TPOT、kvlen 与 latency 趋势
+2:00  读 ops_decode.txt：attention 随 kvlen、linear vs torch
+2:30  （可选）vLLM 或 HF 一行总耗时 / TTFT
+3:00  写 REPORT Profiling 节 + 瓶颈 1～2 条 + InfiniLM 映射一句
+```
+
+### 一键命令
+
+```bash
+cd /home/lcpu/39112061/ai-infra/llaisys-26s && source .venv/bin/activate
+export MODEL=/home/lcpu/39112061/models/DeepSeek-R1-Distill-Qwen-1.5B
+bash scripts/run_profile_5090.sh
+```
+
+### 预期能得出的结论（填数字后勾选）
+
+- [ ] decode **TPOT** 主因：`self_attention` 读全长 KV（kvlen↑ → ms↑）
+- [ ] **linear** naive GEMM 慢于 torch（无 Tensor Core）
+- [ ] kernel 内 **`cudaDeviceSynchronize`** / argmax D2H 抬高 TPOT 底噪
+- [ ] vLLM/HF 同模型快 **X 倍**（只说数量级 + 分层原因）
+
+---
 
 ## 此刻从哪开始
 
-按顺序做。**现在：第 1 步**（读完再进第 2 步）。本仓库（llaisys）在第 2～5 步展开；第 6～8 步先列提纲，到时再展开。
+按顺序做。**Profiling 见上文作战清单**；跑通后执行 `scripts/run_profile_5090.sh`。本仓库在第 2～5 步展开；第 6～8 步先列提纲。
 
 ```text
 第 1 步  三个项目 + JD 标准答
