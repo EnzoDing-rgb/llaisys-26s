@@ -79,6 +79,7 @@ def main() -> None:
     parser.add_argument("--decode-steps", type=int, default=DECODE_STEPS)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--max-model-len", type=int, default=VLLM_MAX_MODEL_LEN)
+    parser.add_argument("--tp-size", type=int, default=1)
     parser.add_argument("--out-dir", type=Path, default=_REPO / "profiling" / "results" / "vllm")
     args = parser.parse_args()
 
@@ -94,6 +95,7 @@ def main() -> None:
         max_model_len=args.max_model_len,
         trust_remote_code=True,
         gpu_memory_utilization=0.85,
+        tensor_parallel_size=args.tp_size,
     )
 
     all_runs: list[dict] = []

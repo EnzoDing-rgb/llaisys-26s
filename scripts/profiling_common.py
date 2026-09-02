@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 _REPO = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = Path("/home/lcpu/39112061/models/DeepSeek-R1-Distill-Qwen-1.5B")
+DEFAULT_MODEL = Path("/home/lcpu/39112061/ai-infra/models/DeepSeek-R1-Distill-Qwen-1.5B")
 PROMPT_TARGETS = {"S": 64, "M": 256, "L": 512, "XL": 1024}
 DECODE_STEPS = 128
 REPEATS = 3

@@ -166,6 +166,58 @@ def plot_ops_attention(ops: list[dict], out_path: Path) -> None:
     plt.close(fig)
 
 
+def plot_kernel_breakdown(wave2: dict, out_path: Path) -> None:
+    """Stacked bars: where each engine's GPU time goes (nsys trace)."""
+    ll = wave2["nsys_kernel_breakdown"]["llaisys_pct"]
+    vv = wave2["nsys_kernel_breakdown"]["vllm_pct"]
+    ll_series = [ll["linear_kernel"], ll["self_attention"], ll["rms_norm"] + ll["rope"], ll["other"]]
+    vv_series = [
+        vv["GEMM (CUTLASS/cuBLAS, tensor core)"],
+        vv["FlashAttention"],
+        vv["RMSNorm (Triton)"],
+        vv["activation / elementwise"],
+    ]
+    cats = ["Linear GEMM", "Attention", "RMSNorm", "Other"]
+    colors = ["#4C72B0", "#DD8452", "#55A868", "#C44E52"]
+    engines = ["llaisys", "vLLM"]
+    fig, ax = plt.subplots(figsize=(8, 4))
+    bottom = [0.0, 0.0]
+    for cat, color, lv, vval in zip(cats, colors, ll_series, vv_series):
+        ax.bar(engines, [lv, vval], bottom=bottom, label=cat, color=color)
+        bottom = [b + x for b, x in zip(bottom, [lv, vval])]
+    for i, eng in enumerate(engines):
+        ax.text(i, bottom[i] + 1, f"{bottom[i]:.0f}%", ha="center", fontweight="bold")
+    ax.set_ylabel("GPU time share (%)")
+    ax.set_ylim(0, 110)
+    ax.set_title("GPU time by kernel type (nsys trace): llaisys vs vLLM")
+    ax.legend(loc="lower right", fontsize=8)
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_tp_ttft(wave2: dict, out_path: Path) -> None:
+    """TP1 vs TP2 TTFT grouped bars."""
+    tp = wave2["tensor_parallel"]
+    x = range(len(TIER_ORDER))
+    width = 0.35
+    t1 = [tp["ttft_ms"][t][0] for t in TIER_ORDER]
+    t2 = [tp["ttft_ms"][t][1] for t in TIER_ORDER]
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.bar([i - width / 2 for i in x], t1, width, label="TP=1", color="#4C72B0")
+    ax.bar([i + width / 2 for i in x], t2, width, label="TP=2", color="#DD8452")
+    ax.set_xticks(list(x))
+    ax.set_xticklabels([f"{t}\n{TIER_LABELS[t]}" for t in TIER_ORDER])
+    ax.set_ylabel("TTFT (ms)")
+    ax.set_title("vLLM TTFT: tensor_parallel_size 1 vs 2")
+    ax.legend()
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def build_report(
     results_dir: Path,
     figures_dir: Path,
@@ -176,6 +228,7 @@ def build_report(
     vllm_runs = load_json(results_dir / "vllm" / "runs.json")
     llaisys_meta = load_json(results_dir / "llaisys" / "meta.json")
     ops = load_json(results_dir / "ops" / "ops.json")
+    wave2 = load_json(results_dir / "wave2.json")
 
     figures_dir.mkdir(parents=True, exist_ok=True)
 
@@ -216,6 +269,9 @@ def build_report(
 
     plot_ops_linear(ops, figures_dir / "06_ops_linear_ratio.png")
     plot_ops_attention(ops, figures_dir / "07_ops_attention_kvlen.png")
+
+    plot_kernel_breakdown(wave2, figures_dir / "08_kernel_breakdown.png")
+    plot_tp_ttft(wave2, figures_dir / "09_tp_ttft.png")
 
     weight_mib = _weight_mib(model_path)
     kv_alloc = llaisys_meta["kv_allocated_mib"]
@@ -332,18 +388,79 @@ attention 的线性增长（§7：0.02→0.16ms）在短上下文内被 GEMM 掩
             )
 
     report += f"""
-## 8. 结论（面试用）
+## 8. NVIDIA 工业级 Profiling（ncu / nsys / torch.profiler）
+
+用 **Nsight Compute（ncu）**、**Nsight Systems（nsys）** 与 **torch.profiler** 从 kernel 级拆解两套引擎。
+
+### 8.1 算子 kernel 级（Nsight Compute）
+
+对 llaisys decode 形状的 `linear_kernel<bf16>` 与 `self_attention_kernel<bf16>` 逐 kernel 采集：
+
+| 指标 | linear_kernel | self_attention_kernel |
+|------|---------------|-----------------------|
+| 耗时 | {wave2['ncu_llaisys']['linear_kernel']['duration_us']} µs | {wave2['ncu_llaisys']['self_attention_kernel']['duration_us']} µs |
+| Memory Throughput | {wave2['ncu_llaisys']['linear_kernel']['memory_throughput_pct']}% | {wave2['ncu_llaisys']['self_attention_kernel']['memory_throughput_pct']}% |
+| DRAM Throughput | {wave2['ncu_llaisys']['linear_kernel']['dram_throughput_pct']}% | {wave2['ncu_llaisys']['self_attention_kernel']['dram_throughput_pct']}% |
+| Compute (SM) Throughput | {wave2['ncu_llaisys']['linear_kernel']['compute_sm_pct']}% | {wave2['ncu_llaisys']['self_attention_kernel']['compute_sm_pct']}% |
+| Achieved Occupancy | {wave2['ncu_llaisys']['linear_kernel']['achieved_occupancy_pct']}%（理论 100%） | {wave2['ncu_llaisys']['self_attention_kernel']['achieved_occupancy_pct']}% |
+
+**linear 慢 13× 的硬件级根因**：(1) 朴素 kernel 完全不用 Tensor Core（SM 利用率仅 8.6%）；(2) 卡在 L1/shared 缓存流量（Memory 70.6% 而 DRAM 仅 0.5%，权重反复进出缓存而非流式复用）；(3) Achieved Occupancy 仅 27.6%（理论 100%），warp 调度不均衡。attention 的 occupancy 有 65%、仅 23µs → **attention 不是瓶颈，linear 才是**。
+
+### 8.2 端到端 kernel 时间分解（nsys trace）
+
+![kernel 分解](figures/08_kernel_breakdown.png)
+
+| 引擎 | Linear GEMM | Attention | RMSNorm | 其他 |
+|------|------------|-----------|---------|------|
+| llaisys | **99.3%** | 0.3% | 0.3% | 0.1% |
+| vLLM | 69.1%（CUTLASS Tensor Core） | 15.6%（FlashAttention） | 4.5% | 10.9% |
+
+llaisys 的 GPU 时间 **99.3% 花在 linear_kernel**；vLLM 的 GEMM 走 CUTLASS `s16816` bf16 Tensor Core，attention 用 FlashAttention 融合 kernel。同一套算子，实现方式不同 → ~18× decode 差距。
+
+### 8.3 工具链注意点
+
+- **torch.profiler 在主进程看不到 vLLM 的 kernel**：vLLM 0.28 把引擎放在独立子进程（EngineCore），主进程 API 只记录到 `cudaDeviceSynchronize`。引擎级 kernel 分析必须用 **nsys 全进程 trace**（本报告 §8.2 的来源），或把 profiler 嵌进 worker。这是 vLLM 架构对 profiling 工具选型的实际约束。
+- ncu / nsys 在 Slurm 作业内均可用；nsys 需设 `TMPDIR`（默认 `/tmp/nvidia` 不可写）。
+
+### 8.4 Roofline：decode 的内存带宽下界
+
+decode 每步必须流式读取全部权重：1.5B × 2B = **3.0 GB**；RTX 5090 HBM 带宽 **1.79 TB/s** → **理论上限 ≈ 1.68 ms/step**。
+
+| 引擎 | TPOT | 相对带宽下界 |
+|------|------|--------------|
+| llaisys | 55 ms | **{wave2['roofline']['llaisys_x_floor']}×** |
+| vLLM | 3.0 ms | {wave2['roofline']['vllm_x_floor']}× |
+
+llaisys 距带宽下界 ~33×，vLLM 已贴近下界（1.8×）——vLLM 的 3ms 里 ~1.7ms 就是"读权重"的物理地板，说明它已接近该模型的最优实现。
+
+### 8.5 张量并行（vLLM tensor_parallel_size=2，2×RTX 5090）
+
+![TP TTFT](figures/09_tp_ttft.png)
+
+| 档位 | TP1 TTFT | TP2 TTFT | 加速 | TP1 TPOT | TP2 TPOT |
+|------|----------|----------|------|----------|----------|
+| S | {wave2['tensor_parallel']['ttft_ms']['S'][0]} | {wave2['tensor_parallel']['ttft_ms']['S'][1]} | 1.96× | {wave2['tensor_parallel']['tpot_ms']['S'][0]} | {wave2['tensor_parallel']['tpot_ms']['S'][1]} |
+| M | {wave2['tensor_parallel']['ttft_ms']['M'][0]} | {wave2['tensor_parallel']['ttft_ms']['M'][1]} | 1.68× | {wave2['tensor_parallel']['tpot_ms']['M'][0]} | {wave2['tensor_parallel']['tpot_ms']['M'][1]} |
+| L | {wave2['tensor_parallel']['ttft_ms']['L'][0]} | {wave2['tensor_parallel']['ttft_ms']['L'][1]} | 1.59× | {wave2['tensor_parallel']['tpot_ms']['L'][0]} | {wave2['tensor_parallel']['tpot_ms']['L'][1]} |
+| XL | {wave2['tensor_parallel']['ttft_ms']['XL'][0]} | {wave2['tensor_parallel']['ttft_ms']['XL'][1]} | 1.62× | {wave2['tensor_parallel']['tpot_ms']['XL'][0]} | {wave2['tensor_parallel']['tpot_ms']['XL'][1]} |
+
+**关键洞察**：prefill 是 compute-bound → TP 把每卡 GEMM 工作量减半 → TTFT 近线性加速（~1.6–2×）；decode 是 memory-bound + 每步通信 → TP 对 TPOT 几乎无改善（~3ms 持平甚至略差）。**张量并行优化的是 prefill 与吞吐，不是 decode 延迟**——对 1.5B 这类小模型，通信开销还会抵消并行收益。
+
+## 9. 结论（面试用）
 
 1. **端到端差距**：vLLM 在 TTFT/TPOT 上均显著快于 llaisys。TPOT 恒定 ~18×（55ms vs 3ms）；TTFT 差距随 prompt 增长从 8× 扩大到 **114×**（XL 档 3108ms vs 27ms），因为 llaisys 的 prefill 无融合 kernel，且朴素实现把 prefill 时间浪费在无 Tensor Core 的 GEMM 上。
 2. **算子层归因（关键 insight）**：慢的根源是 **Linear GEMM（慢 torch 12–13×）**，不是 attention 也不是 rope。qlen=1 的 attention 在 llaisys 里是精简扫描，反而比 torch 通用 attention 快；但它确实随 kvlen **线性**增长（0.02→0.16ms），长上下文下会逐渐成为 decode 的新瓶颈 → 印证 FlashAttention/分页 KV 的必要性。
 3. **内存**：llaisys 按 maxseq=131072 固定预分配 KV（3.5 GiB），本实验填充率 <1%，纯浪费；vLLM 用 Paged KV + 可配置容量池，为并发吞吐预留而非空转。两种"预留"哲学不同，但 llaisys 的固定预分配对长上下文不友好。
 4. **下一步**（不在本报告）：分页/按需 KV、Tensor Core 融合 GEMM、FlashAttention、llaisys 的 CUDA Graph 捕获解码步，均需单独 feature 分支评估。
+5. **NVIDIA 工具链结论**：ncu 证明 linear 慢在"无 Tensor Core + L1 缓存流量卡住 + occupancy 仅 27.6%"，nsys 证明 llaisys 99.3% 的 GPU 时间在 linear 而 vLLM 用 CUTLASS+FlashAttention 摊薄；roofline 表明 decode 物理下界 1.68ms，llaisys 距下界 33×、vLLM 已贴地 1.8×；TP=2 显示**张量并行只加速 compute-bound 的 prefill（~2×），不加速 memory-bound 的 decode**。
 
-## 9. 原始数据
+## 10. 原始数据
 
 - `profiling/results/llaisys/runs.json`
-- `profiling/results/vllm/runs.json`
+- `profiling/results/vllm/runs.json`（另 `vllm_tp2/runs.json` 为 TP=2）
 - `profiling/results/ops/ops.json`
+- `profiling/results/wave2.json`（ncu/nsys/roofline/TP 蒸馏数据）
+- `profiling/results/ncu/*.txt`、`profiling/results/nsys/*.txt`、`profiling/results/torchprof/*.txt`（NVIDIA 工具原始输出）
 - `profiling/prompts.json`
 """
 

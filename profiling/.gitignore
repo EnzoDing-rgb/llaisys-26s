@@ -5,3 +5,7 @@
 # Runtime artifacts
 *.out
 __pycache__/
+
+# Large binary profiler traces (keep the .txt summaries)
+*.nsys-rep
+*.sqlite

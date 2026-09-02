@@ -1,0 +1,14 @@
+WARNING: CPU IP/backtrace sampling not supported, disabling.
+Try the 'nsys status --environment' command to learn more.
+
+WARNING: CPU context switch tracing not supported, disabling.
+Try the 'nsys status --environment' command to learn more.
+
+Loading llaisys model ...
+prompt tokens = 62
+nsight workload done
+Collecting data...
+Generating '/home/lcpu/39112061/.nsys-tmp/nsys-report-a179.qdstrm'
+[1/1] [0%                          ] llaisys.nsys-rep[1/1] [0%                          ] llaisys.nsys-rep[1/1] [5%                          ] llaisys.nsys-rep[1/1] [8%                          ] llaisys.nsys-rep[1/1] [11%                         ] llaisys.nsys-rep[1/1] [==19%                       ] llaisys.nsys-rep[1/1] [====27%                     ] llaisys.nsys-rep[1/1] [=======38%                  ] llaisys.nsys-rep[1/1] [===========50%              ] llaisys.nsys-rep[1/1] [================70%         ] llaisys.nsys-rep[1/1] [======================90%   ] llaisys.nsys-rep[1/1] [=======================94%  ] llaisys.nsys-rep[1/1] [========================98% ] llaisys.nsys-rep[1/1] [========================99% ] llaisys.nsys-rep[1/1] [========================100%] llaisys.nsys-rep[1/1] [========================100%] llaisys.nsys-rep
+Generated:
+	/home/lcpu/39112061/ai-infra/llaisys-26s/profiling/results/nsys/llaisys.nsys-rep

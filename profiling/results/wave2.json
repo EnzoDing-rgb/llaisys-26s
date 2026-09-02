@@ -1,0 +1,58 @@
+{
+  "ncu_llaisys": {
+    "linear_kernel": {
+      "grid": "372x1x1 / 256 threads",
+      "duration_us": 624.06,
+      "memory_throughput_pct": 70.55,
+      "dram_throughput_pct": 0.45,
+      "compute_sm_pct": 8.56,
+      "theoretical_occupancy_pct": 100.0,
+      "achieved_occupancy_pct": 27.62,
+      "active_warps_per_sm": 13.26,
+      "note": "q projection, decode shape; L1/shared-memory bound, no tensor cores"
+    },
+    "self_attention_kernel": {
+      "duration_us": 23.07,
+      "memory_throughput_pct": 49.09,
+      "dram_throughput_pct": 0.67,
+      "compute_sm_pct": 21.93,
+      "theoretical_occupancy_pct": 100.0,
+      "achieved_occupancy_pct": 64.98,
+      "active_warps_per_sm": 31.19,
+      "note": "qlen=1 decode; decent occupancy, memory-bound"
+    }
+  },
+  "nsys_kernel_breakdown": {
+    "llaisys_pct": {
+      "linear_kernel": 99.3,
+      "self_attention": 0.3,
+      "rms_norm": 0.2,
+      "rope": 0.1,
+      "other": 0.1
+    },
+    "vllm_pct": {
+      "GEMM (CUTLASS/cuBLAS, tensor core)": 69.1,
+      "FlashAttention": 15.6,
+      "RMSNorm (Triton)": 4.5,
+      "activation / elementwise": 10.9
+    }
+  },
+  "roofline": {
+    "weights_gb": 3.0,
+    "bw_tbs": 1.79,
+    "decode_floor_ms": 1.68,
+    "llaisys_tpot_ms": 55.0,
+    "vllm_tpot_ms": 3.0,
+    "llaisys_x_floor": 32.7,
+    "vllm_x_floor": 1.8
+  },
+  "achieved_tflops": {
+    "llaisys_linear_q": 0.03,
+    "torch_linear_q": 0.41,
+    "gpu_peak_bf16_tflops": 225.0
+  },
+  "tensor_parallel": {
+    "ttft_ms": { "S": [27.0, 13.7], "M": [24.1, 14.3], "L": [25.7, 16.2], "XL": [27.3, 16.8] },
+    "tpot_ms": { "S": [2.97, 2.84], "M": [3.27, 2.52], "L": [2.98, 2.66], "XL": [3.14, 3.26] }
+  }
+}

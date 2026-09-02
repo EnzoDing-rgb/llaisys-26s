@@ -1,0 +1,147 @@
+==PROF== Connected to process 1986651 (/home/lcpu/39112061/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/bin/python3.12)
+Loading llaisys model ...
+prompt tokens = 62
+==PROF== Profiling "rms_norm_kernel": 0%....50%....100% - 9 passes
+==PROF== Profiling "rope_kernel": 0%....50%....100% - 9 passes
+==PROF== Profiling "rope_kernel": 0%....50%....100% - 9 passes
+nsight workload done
+==PROF== Disconnected from process 1986651
+[1986651] python3.12@127.0.0.1
+  void rms_norm_kernel<__nv_bfloat16>(T1 *, const T1 *, const T1 *, unsigned long, float) (62, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 12.0
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz        13.73
+    SM Frequency                    Ghz         2.00
+    Elapsed Cycles                cycle        14058
+    Memory Throughput                 %         4.94
+    DRAM Throughput                   %         1.62
+    Duration                         us         7.01
+    L1/TEX Cache Throughput           %         7.11
+    L2 Cache Throughput               %         1.89
+    SM Active Cycles              cycle      4187.90
+    Compute (SM) Throughput           %         2.12
+    ----------------------- ----------- ------------
+
+    OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.1 full      
+          waves across all SMs. Look at Launch Statistics for more details.                                             
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Max Active Clusters                 cluster            0
+    Max Cluster Size                      block            8
+    Overall GPU Occupancy                     %            0
+    Cluster Occupancy                         %            0
+    Block Limit Barriers                  block           24
+    Block Limit SM                        block           24
+    Block Limit Registers                 block           16
+    Block Limit Shared Mem                block           16
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           48
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        16.17
+    Achieved Active Warps Per SM           warp         7.76
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 83.83%                                                                                    
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (16.2%) can be the     
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+
+  void rope_kernel<__nv_bfloat16>(T1 *, const T1 *, const long *, unsigned long, unsigned long, unsigned long, float) (186, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 12.0
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz        13.61
+    SM Frequency                    Ghz         1.98
+    Elapsed Cycles                cycle         7241
+    Memory Throughput                 %         9.46
+    DRAM Throughput                   %         3.19
+    Duration                         us         3.65
+    L1/TEX Cache Throughput           %         2.82
+    L2 Cache Throughput               %         3.23
+    SM Active Cycles              cycle      3725.05
+    Compute (SM) Throughput           %         9.40
+    ----------------------- ----------- ------------
+
+    OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.2 full      
+          waves across all SMs. Look at Launch Statistics for more details.                                             
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Max Active Clusters                 cluster            0
+    Max Cluster Size                      block            8
+    Overall GPU Occupancy                     %            0
+    Cluster Occupancy                         %            0
+    Block Limit Barriers                  block           24
+    Block Limit SM                        block           24
+    Block Limit Registers                 block            8
+    Block Limit Shared Mem                block           16
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           48
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        17.21
+    Achieved Active Warps Per SM           warp         8.26
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 82.79%                                                                                    
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (17.2%) can be the     
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+
+  void rope_kernel<__nv_bfloat16>(T1 *, const T1 *, const long *, unsigned long, unsigned long, unsigned long, float) (31, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 12.0
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz        13.66
+    SM Frequency                    Ghz         1.99
+    Elapsed Cycles                cycle         7089
+    Memory Throughput                 %         9.55
+    DRAM Throughput                   %         0.72
+    Duration                         us         3.55
+    L1/TEX Cache Throughput           %         2.49
+    L2 Cache Throughput               %         1.19
+    SM Active Cycles              cycle       702.42
+    Compute (SM) Throughput           %         1.60
+    ----------------------- ----------- ------------
+
+    OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.0 full      
+          waves across all SMs. Look at Launch Statistics for more details.                                             
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Max Active Clusters                 cluster            0
+    Max Cluster Size                      block            8
+    Overall GPU Occupancy                     %            0
+    Cluster Occupancy                         %            0
+    Block Limit Barriers                  block           24
+    Block Limit SM                        block           24
+    Block Limit Registers                 block            8
+    Block Limit Shared Mem                block           16
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           48
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        15.62
+    Achieved Active Warps Per SM           warp         7.50
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 84.38%                                                                                    
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (15.6%) can be the     
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+
