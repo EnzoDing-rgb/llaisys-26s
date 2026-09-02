@@ -1,0 +1,6 @@
+{
+  "model": "/home/lcpu/39112061/ai-infra/models/DeepSeek-R1-Distill-Qwen-1.5B",
+  "max_model_len": 4096,
+  "decode_steps": 128,
+  "repeats": 3
+}

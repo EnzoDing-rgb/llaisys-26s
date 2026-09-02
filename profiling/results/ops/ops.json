@@ -1,0 +1,54 @@
+[
+  {
+    "op": "linear_q",
+    "torch_ms": 0.0116,
+    "llaisys_ms": 0.1558,
+    "ratio_llaisys_over_torch": 13.434
+  },
+  {
+    "op": "linear_k",
+    "torch_ms": 0.0112,
+    "llaisys_ms": 0.1521,
+    "ratio_llaisys_over_torch": 13.547
+  },
+  {
+    "op": "linear_mlp_gate",
+    "torch_ms": 0.0125,
+    "llaisys_ms": 0.1515,
+    "ratio_llaisys_over_torch": 12.131
+  },
+  {
+    "op": "self_attention_kv128",
+    "kvlen": 128,
+    "torch_ms": 0.1816,
+    "llaisys_ms": 0.0194,
+    "ratio_llaisys_over_torch": 0.107
+  },
+  {
+    "op": "self_attention_kv512",
+    "kvlen": 512,
+    "torch_ms": 0.1953,
+    "llaisys_ms": 0.0463,
+    "ratio_llaisys_over_torch": 0.237
+  },
+  {
+    "op": "self_attention_kv1024",
+    "kvlen": 1024,
+    "torch_ms": 0.1777,
+    "llaisys_ms": 0.0844,
+    "ratio_llaisys_over_torch": 0.475
+  },
+  {
+    "op": "self_attention_kv2048",
+    "kvlen": 2048,
+    "torch_ms": 0.1796,
+    "llaisys_ms": 0.1592,
+    "ratio_llaisys_over_torch": 0.887
+  },
+  {
+    "op": "rope",
+    "torch_ms": 0.1669,
+    "llaisys_ms": 0.0088,
+    "ratio_llaisys_over_torch": 0.052
+  }
+]

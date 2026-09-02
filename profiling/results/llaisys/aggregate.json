@@ -1,0 +1,142 @@
+[
+  {
+    "engine": "llaisys",
+    "tier": "S",
+    "metric": "ttft_ms",
+    "mean": 867.476,
+    "stdev": 905.217
+  },
+  {
+    "engine": "llaisys",
+    "tier": "S",
+    "metric": "tpot_ms",
+    "mean": 54.939,
+    "stdev": 0.096
+  },
+  {
+    "engine": "llaisys",
+    "tier": "S",
+    "metric": "total_ms",
+    "mean": 7899.701,
+    "stdev": 896.334
+  },
+  {
+    "engine": "llaisys",
+    "tier": "S",
+    "metric": "peak_gpu_mib",
+    "mean": 8232.06,
+    "stdev": 0.0
+  },
+  {
+    "engine": "llaisys",
+    "tier": "S",
+    "metric": "kv_fill_ratio",
+    "mean": 0.001,
+    "stdev": 0.0
+  },
+  {
+    "engine": "llaisys",
+    "tier": "M",
+    "metric": "ttft_ms",
+    "mean": 1280.215,
+    "stdev": 698.486
+  },
+  {
+    "engine": "llaisys",
+    "tier": "M",
+    "metric": "tpot_ms",
+    "mean": 55.627,
+    "stdev": 0.198
+  },
+  {
+    "engine": "llaisys",
+    "tier": "M",
+    "metric": "total_ms",
+    "mean": 8400.42,
+    "stdev": 676.238
+  },
+  {
+    "engine": "llaisys",
+    "tier": "M",
+    "metric": "peak_gpu_mib",
+    "mean": 8252.06,
+    "stdev": 0.0
+  },
+  {
+    "engine": "llaisys",
+    "tier": "M",
+    "metric": "kv_fill_ratio",
+    "mean": 0.003,
+    "stdev": 0.0
+  },
+  {
+    "engine": "llaisys",
+    "tier": "L",
+    "metric": "ttft_ms",
+    "mean": 1538.29,
+    "stdev": 2.046
+  },
+  {
+    "engine": "llaisys",
+    "tier": "L",
+    "metric": "tpot_ms",
+    "mean": 54.992,
+    "stdev": 0.758
+  },
+  {
+    "engine": "llaisys",
+    "tier": "L",
+    "metric": "total_ms",
+    "mean": 8577.237,
+    "stdev": 99.126
+  },
+  {
+    "engine": "llaisys",
+    "tier": "L",
+    "metric": "peak_gpu_mib",
+    "mean": 8270.06,
+    "stdev": 0.0
+  },
+  {
+    "engine": "llaisys",
+    "tier": "L",
+    "metric": "kv_fill_ratio",
+    "mean": 0.005,
+    "stdev": 0.0
+  },
+  {
+    "engine": "llaisys",
+    "tier": "XL",
+    "metric": "ttft_ms",
+    "mean": 3106.228,
+    "stdev": 2.56
+  },
+  {
+    "engine": "llaisys",
+    "tier": "XL",
+    "metric": "tpot_ms",
+    "mean": 56.374,
+    "stdev": 0.395
+  },
+  {
+    "engine": "llaisys",
+    "tier": "XL",
+    "metric": "total_ms",
+    "mean": 10322.104,
+    "stdev": 53.124
+  },
+  {
+    "engine": "llaisys",
+    "tier": "XL",
+    "metric": "peak_gpu_mib",
+    "mean": 8308.06,
+    "stdev": 0.0
+  },
+  {
+    "engine": "llaisys",
+    "tier": "XL",
+    "metric": "kv_fill_ratio",
+    "mean": 0.009,
+    "stdev": 0.0
+  }
+]

@@ -1,0 +1,114 @@
+[
+  {
+    "engine": "vllm",
+    "tier": "S",
+    "metric": "ttft_ms",
+    "mean": 30.662,
+    "stdev": 8.008
+  },
+  {
+    "engine": "vllm",
+    "tier": "S",
+    "metric": "tpot_ms",
+    "mean": 2.948,
+    "stdev": 0.05
+  },
+  {
+    "engine": "vllm",
+    "tier": "S",
+    "metric": "total_ms",
+    "mean": 405.095,
+    "stdev": 10.729
+  },
+  {
+    "engine": "vllm",
+    "tier": "S",
+    "metric": "peak_gpu_mib",
+    "mean": 29243.44,
+    "stdev": 0.0
+  },
+  {
+    "engine": "vllm",
+    "tier": "M",
+    "metric": "ttft_ms",
+    "mean": 24.813,
+    "stdev": 1.091
+  },
+  {
+    "engine": "vllm",
+    "tier": "M",
+    "metric": "tpot_ms",
+    "mean": 3.387,
+    "stdev": 0.376
+  },
+  {
+    "engine": "vllm",
+    "tier": "M",
+    "metric": "total_ms",
+    "mean": 455.036,
+    "stdev": 46.928
+  },
+  {
+    "engine": "vllm",
+    "tier": "M",
+    "metric": "peak_gpu_mib",
+    "mean": 29243.44,
+    "stdev": 0.0
+  },
+  {
+    "engine": "vllm",
+    "tier": "L",
+    "metric": "ttft_ms",
+    "mean": 22.154,
+    "stdev": 5.332
+  },
+  {
+    "engine": "vllm",
+    "tier": "L",
+    "metric": "tpot_ms",
+    "mean": 3.265,
+    "stdev": 0.446
+  },
+  {
+    "engine": "vllm",
+    "tier": "L",
+    "metric": "total_ms",
+    "mean": 436.834,
+    "stdev": 59.558
+  },
+  {
+    "engine": "vllm",
+    "tier": "L",
+    "metric": "peak_gpu_mib",
+    "mean": 29243.44,
+    "stdev": 0.0
+  },
+  {
+    "engine": "vllm",
+    "tier": "XL",
+    "metric": "ttft_ms",
+    "mean": 32.264,
+    "stdev": 8.222
+  },
+  {
+    "engine": "vllm",
+    "tier": "XL",
+    "metric": "tpot_ms",
+    "mean": 3.128,
+    "stdev": 0.131
+  },
+  {
+    "engine": "vllm",
+    "tier": "XL",
+    "metric": "total_ms",
+    "mean": 429.574,
+    "stdev": 19.659
+  },
+  {
+    "engine": "vllm",
+    "tier": "XL",
+    "metric": "peak_gpu_mib",
+    "mean": 29243.44,
+    "stdev": 0.0
+  }
+]

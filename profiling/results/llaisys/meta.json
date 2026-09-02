@@ -1,0 +1,11 @@
+{
+  "model": "/home/lcpu/39112061/ai-infra/models/DeepSeek-R1-Distill-Qwen-1.5B",
+  "device": "nvidia",
+  "decode_steps": 128,
+  "repeats": 3,
+  "kv_allocated_mib": 3584.0,
+  "maxseq": 131072,
+  "nlayer": 28,
+  "nkvh": 2,
+  "dh": 128
+}

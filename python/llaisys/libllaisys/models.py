@@ -71,6 +71,10 @@ def load_models(lib):
     lib.llaisysQwen2ModelDestroy.argtypes = [llaisysQwen2Model_t]
     lib.llaisysQwen2ModelDestroy.restype = None
 
+    # void llaisysQwen2ModelResetCache(LlaisysQwen2Model *)
+    lib.llaisysQwen2ModelResetCache.argtypes = [llaisysQwen2Model_t]
+    lib.llaisysQwen2ModelResetCache.restype = None
+
     # LlaisysQwen2Weights *llaisysQwen2ModelWeights(LlaisysQwen2Model *)
     lib.llaisysQwen2ModelWeights.argtypes = [llaisysQwen2Model_t]
     lib.llaisysQwen2ModelWeights.restype = POINTER(LlaisysQwen2Weights)

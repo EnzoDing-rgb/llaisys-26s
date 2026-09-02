@@ -182,6 +182,10 @@ static void copy_tensor(llaisysTensor_t dst, llaisysTensor_t src) {
         tensorGetData(dst), tensorGetData(src), numel * esize, kind);
 }
 
+void llaisysQwen2ModelResetCache(struct LlaisysQwen2Model *model) {
+    if (model) model->cache_len = 0;
+}
+
 int64_t llaisysQwen2ModelInfer(
     struct LlaisysQwen2Model *model,
     int64_t *token_ids,

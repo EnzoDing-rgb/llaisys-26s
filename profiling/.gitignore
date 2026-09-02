@@ -1,0 +1,7 @@
+# Keep profiling JSON results + figures in git despite root *.json rule.
+!*.json
+!**/*.json
+
+# Runtime artifacts
+*.out
+__pycache__/
